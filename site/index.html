@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Reusable open-source Agent Skills by bgevorkian for Pi and compatible agent systems.">
+  <title>Agent Skills by bgevorkian</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <nav>
+      <a class="brand" href="./">agent<span>/skills</span></a>
+      <a class="repo-link" href="https://github.com/bgevorkian/agent-skills">View on GitHub ↗</a>
+    </nav>
+    <div class="hero-copy">
+      <p class="eyebrow">OPEN-SOURCE · AGENT SKILLS STANDARD</p>
+      <h1>Useful capabilities,<br><em>ready for your agent.</em></h1>
+      <p class="intro">Reusable skill packages with instructions, scripts, tests, and honest limitations. Built for Pi and portable to compatible agent systems.</p>
+      <div class="hero-actions">
+        <a class="button primary" href="#catalog">Browse skills</a>
+        <a class="button secondary" href="https://agentskills.io/specification">Read the standard</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="principles" aria-label="Project principles">
+      <div><strong>Context-aware</strong><span>Full-model workflows</span></div>
+      <div><strong>Resumable</strong><span>Safe checkpoints</span></div>
+      <div><strong>Validated</strong><span>Tests + visual QA</span></div>
+      <div><strong>Portable</strong><span>Standard structure</span></div>
+    </section>
+
+    <section id="catalog" class="catalog">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">CATALOG · 01</p>
+          <h2>Published skills</h2>
+        </div>
+        <p>Every skill is audited before publication. Internal infrastructure and credentials never belong here.</p>
+      </div>
+
+      <article class="skill-card">
+        <div class="skill-number">01</div>
+        <div class="skill-main">
+          <div class="tags"><span>EPUB</span><span>PDF</span><span>GPT‑5.4</span><span>Vision QA</span></div>
+          <h3>epub-ai-translate</h3>
+          <p>Literary Russian translation for user-provided EPUB and text-layer PDF books. It keeps chapter context, shares a terminology glossary, resumes safely, preserves illustrations, rebuilds book-quality PDFs, and asks a second vision model to inspect every page.</p>
+          <ul>
+            <li>EPUB → Russian EPUB + PDF</li>
+            <li>Text-layer PDF → reflowed Russian PDF</li>
+            <li>Whole-chapter / semantic-chunk translation</li>
+            <li>Deterministic checks + full-page vision review</li>
+          </ul>
+        </div>
+        <div class="skill-actions">
+          <a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/epub-ai-translate">Open skill ↗</a>
+          <button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="install">
+      <div>
+        <p class="eyebrow">INSTALL</p>
+        <h2>One repo.<br>Pick what you need.</h2>
+      </div>
+      <div class="terminal" role="group" aria-label="Installation command">
+        <div class="terminal-bar"><i></i><i></i><i></i><span>shell</span></div>
+        <pre><code><span>$</span> git clone https://github.com/bgevorkian/agent-skills.git
+<span>$</span> mkdir -p ~/.agents/skills
+<span>$</span> cp -R agent-skills/skills/epub-ai-translate ~/.agents/skills/</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>MIT licensed · 2026</span>
+    <a href="https://github.com/bgevorkian">github.com/bgevorkian</a>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
