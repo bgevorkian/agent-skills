@@ -24,7 +24,7 @@ Safety decision: every mutation must require both a dedicated `*_ALLOW_WRITE=tru
 
 TIDAL decision: do not publish recommendation, similar-playlist, vibe/BPM/key/energy classification, or automatic playlist sorting. The public skill handles explicit search/library/playlist/favorite tasks only.
 
-Publication order: database skills first, then services. The batch may be integrated together after audit.
+Publication order was database skills first, then services; all passed one final integrated audit.
 
 ## Completed implementation batch
 
@@ -46,7 +46,9 @@ Main-session audit completed:
 - README, CI workflows and the 9-card Pages catalog were updated;
 - the full Pages site was rendered and visually inspected.
 
-Remaining publication steps: commit/push, watch validation and Pages deployment to success, verify live catalog content, then update this document with the release commit.
+## Release status
+
+Released in commit `1c2421a` (`feat: publish generic operations and account skills`). Both GitHub Actions workflows completed successfully, the live Pages catalog exposes all 9 skills, and the local checkout was clean after deployment verification.
 
 ## Never publish as-is
 
