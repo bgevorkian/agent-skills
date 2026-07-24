@@ -7,7 +7,7 @@ Last updated: 2026-07-24
 - Public repo: https://github.com/bgevorkian/agent-skills
 - GitHub Pages: https://bgevorkian.github.io/agent-skills/
 - Local checkout: `C:\Users\bgevorkian\agent-skills`
-- Published and validated: 9 skills in the live catalog; the next approved package is `video-to-notes`.
+- Published and validated: 10 skills in the live catalog, including `video-to-notes`.
 
 ## Current release batch
 
@@ -48,7 +48,7 @@ Main-session audit completed:
 
 ## Release status
 
-Released in commit `1c2421a` (`feat: publish generic operations and account skills`). Both GitHub Actions workflows completed successfully and the live Pages catalog exposes all 9 skills. A matching `a/` SVG favicon was previewed locally and approved before publication.
+The generic operations/account batch was released in commit `1c2421a`. `video-to-notes` was released in commit `d835e40`. Validation and Pages workflows completed successfully, the live catalog exposes all 10 skills, the public SKILL URL returns HTTP 200, and the local checkout was clean after deployment verification. A matching `a/` SVG favicon was previewed locally and approved before publication.
 
 ## Video-to-notes batch
 
@@ -56,7 +56,7 @@ User approved the public name `video-to-notes` and dual Markdown + searchable PD
 
 Implementation includes deterministic preparation, optional local transcription, Unicode/Cyrillic PDF rendering, a model-neutral visual-analysis contract, prompt-injection/privacy guidance, subprocess timeouts and download/frame bounds. Offline tests cover transcript parsing, filename/command safety, dHash selection, transcription gating, manifest updates, Markdown sanitization, and searchable PDF output.
 
-Publication checklist: run the full 10-skill validator/tests, security scan, render the 10-card site, review the complete diff, commit/push, watch both workflows, and verify the live catalog.
+Publication completed: the full 10-skill validator/tests and Ruff passed, the security scan was clean, the 10-card site was rendered and reviewed, both GitHub workflows succeeded, and live HTTP content was verified.
 
 ## Never publish as-is
 
