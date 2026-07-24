@@ -7,7 +7,7 @@ Last updated: 2026-07-24
 - Public repo: https://github.com/bgevorkian/agent-skills
 - GitHub Pages: https://bgevorkian.github.io/agent-skills/
 - Local checkout: `C:\Users\bgevorkian\agent-skills`
-- Published and validated: `epub-ai-translate`, `clickhouse-readonly`, `postgres-readonly`.
+- Published and validated: 9 skills in the live catalog; the next approved package is `video-to-notes`.
 
 ## Current release batch
 
@@ -49,6 +49,14 @@ Main-session audit completed:
 ## Release status
 
 Released in commit `1c2421a` (`feat: publish generic operations and account skills`). Both GitHub Actions workflows completed successfully and the live Pages catalog exposes all 9 skills. A matching `a/` SVG favicon was previewed locally and approved before publication.
+
+## Video-to-notes batch
+
+User approved the public name `video-to-notes` and dual Markdown + searchable PDF output. The skill must be described as a multimodal video-understanding pipeline, not simple speech-to-text: it combines native captions or optional faster-whisper transcription with bounded frame extraction, 64-bit dHash deduplication, and visual recovery of visible code, terminals, slides, diagrams, and UI steps.
+
+Implementation includes deterministic preparation, optional local transcription, Unicode/Cyrillic PDF rendering, a model-neutral visual-analysis contract, prompt-injection/privacy guidance, subprocess timeouts and download/frame bounds. Offline tests cover transcript parsing, filename/command safety, dHash selection, transcription gating, manifest updates, Markdown sanitization, and searchable PDF output.
+
+Publication checklist: run the full 10-skill validator/tests, security scan, render the 10-card site, review the complete diff, commit/push, watch both workflows, and verify the live catalog.
 
 ## Never publish as-is
 

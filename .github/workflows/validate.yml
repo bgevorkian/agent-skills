@@ -36,5 +36,9 @@ jobs:
         run: |
           uv run --python 3.13 --with beautifulsoup4 --with lxml --with pypdf --with pymupdf python skills/epub-ai-translate/tests/test_markup.py
           uv run --python 3.13 --with beautifulsoup4 --with lxml --with pypdf --with pymupdf python skills/epub-ai-translate/tests/test_pdf_extract.py
+      - name: Test video-to-notes skill
+        run: |
+          uv run --python 3.13 --with pillow python skills/video-to-notes/tests/test_prepare_video.py
+          uv run --python 3.13 --with markdown --with pymupdf python skills/video-to-notes/tests/test_notes_to_pdf.py
       - name: Check whitespace
         run: git diff --check

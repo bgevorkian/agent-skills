@@ -9,6 +9,7 @@ Reusable, open-source [Agent Skills](https://agentskills.io/) for Pi and other c
 | Skill | What it does | Requirements |
 |---|---|---|
 | [`epub-ai-translate`](skills/epub-ai-translate/) | Literary AI translation of user-provided EPUB or text-layer PDF books into Russian. Preserves images, supports checkpoints and glossaries, builds book-quality PDFs, and performs full-page vision layout QA. | Pi CLI, `uv`, Python 3.13, Chrome/Edge |
+| [`video-to-notes`](skills/video-to-notes/) | Convert local videos or supported URLs into Markdown notes and searchable PDFs using subtitles/optional Whisper plus perceptually deduplicated visual frames—capturing on-screen code, terminals, slides and UI, not merely speech-to-text. | `uv`, Python 3.11+, `ffmpeg`, `Pillow`; optional `yt-dlp`, `faster-whisper`, `markdown`, `pymupdf` |
 | [`clickhouse-readonly`](skills/clickhouse-readonly/) | Infrastructure-neutral read-only ClickHouse query/list/schema CLI with JSON output, TLS defaults, result limits, local SQL guards, and server `readonly=1`. | `uv`, Python 3.11+, `clickhouse-connect` |
 | [`postgres-readonly`](skills/postgres-readonly/) | Safe single-host or bounded multi-host PostgreSQL queries with JSON output, standard `PG*` configuration, TLS, SQL guards, and read-only transactions. | `uv`, Python 3.11+, `asyncpg` |
 | [`mssql-safe`](skills/mssql-safe/) | Generic SQL Server inspection/query CLI plus doubly gated DDL/DML execution. | `uv`, Python 3.11+, `pymssql` |
@@ -46,6 +47,7 @@ After restarting Pi, force-load a skill with:
 
 ```text
 /skill:epub-ai-translate
+/skill:video-to-notes
 /skill:clickhouse-readonly
 /skill:postgres-readonly
 /skill:mssql-safe
