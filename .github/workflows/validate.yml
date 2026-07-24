@@ -17,12 +17,21 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.13"
+          enable-cache: false
       - name: Validate Agent Skills
         run: uv run --python 3.13 scripts/validate_skills.py
-      - name: Test ClickHouse skill
-        run: uv run --python 3.13 --with clickhouse-connect python skills/clickhouse-readonly/tests/test_ch.py
-      - name: Test PostgreSQL skill
-        run: uv run --python 3.13 --with asyncpg python skills/postgres-readonly/tests/test_pg.py
+      - name: Test database skills
+        run: |
+          uv run --python 3.13 --with clickhouse-connect python skills/clickhouse-readonly/tests/test_ch.py
+          uv run --python 3.13 --with asyncpg python skills/postgres-readonly/tests/test_pg.py
+          uv run --python 3.13 --with pymssql python skills/mssql-safe/tests/test_ms.py
+          uv run --python 3.13 --with trino python skills/trino-readonly/tests/test_tr.py
+      - name: Test service skills
+        run: |
+          uv run --python 3.13 python skills/prefect-ops/tests/test_pf.py
+          uv run --python 3.13 --with telethon python skills/telegram-user/tests/test_tg.py
+          uv run --python 3.13 python skills/youtrack/tests/test_yt.py
+          uv run --python 3.13 --with tidalapi python skills/tidal/tests/test_tidal.py
       - name: Test translation skill
         run: |
           uv run --python 3.13 --with beautifulsoup4 --with lxml --with pypdf --with pymupdf python skills/epub-ai-translate/tests/test_markup.py

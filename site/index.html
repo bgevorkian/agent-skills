@@ -35,7 +35,7 @@
     <section id="catalog" class="catalog">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">CATALOG · 03</p>
+          <p class="eyebrow">CATALOG · 09</p>
           <h2>Published skills</h2>
         </div>
         <p>Every skill is audited before publication. Internal infrastructure and credentials never belong here.</p>
@@ -96,6 +96,72 @@
           <a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/postgres-readonly">Open skill ↗</a>
           <button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button>
         </div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">04</div>
+        <div class="skill-main">
+          <div class="tags"><span>SQL Server</span><span>Safe writes</span><span>JSON</span><span>TLS</span></div>
+          <h3>mssql-safe</h3>
+          <p>Portable Microsoft SQL Server inspection and querying with generic environment configuration. DDL/DML is available only through a double-gated execution command.</p>
+          <ul><li>Database/schema/table inspection</li><li>Conservative read-only SQL guard</li><li>Environment + explicit write confirmation</li><li>Timeouts and bounded JSON results</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/mssql-safe">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">05</div>
+        <div class="skill-main">
+          <div class="tags"><span>Trino</span><span>Iceberg</span><span>Read-only</span><span>JSON</span></div>
+          <h3>trino-readonly</h3>
+          <p>Infrastructure-neutral Trino queries and metadata inspection with TLS verification, multiple standard authentication modes, SQL guards and result limits.</p>
+          <ul><li>Catalog/schema/table discovery</li><li>Password, token or client-certificate auth</li><li>DDL/DML and multi-statement guard</li><li>Parameterized JSON output</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/trino-readonly">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">06</div>
+        <div class="skill-main">
+          <div class="tags"><span>Prefect 3</span><span>Operations</span><span>REST</span><span>Write gate</span></div>
+          <h3>prefect-ops</h3>
+          <p>Inspect flow/task runs, logs, deployments, schedules, variables, automations and work pools. Operational changes require two independent confirmations.</p>
+          <ul><li>Run and deployment diagnostics</li><li>Logs, schedules and automation inspection</li><li>Generic endpoint + environment-only token</li><li>Doubly gated operational mutations</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/prefect-ops">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">07</div>
+        <div class="skill-main">
+          <div class="tags"><span>Telegram</span><span>Telethon</span><span>MTProto</span><span>Write gate</span></div>
+          <h3>telegram-user</h3>
+          <p>Use a user's own Telegram account for explicit dialog, message, search, folder and contact tasks. Sessions live in a generic per-user data directory.</p>
+          <ul><li>Interactive login without secret logging</li><li>Dialogs, messages, search and Saved Messages</li><li>Folders, contacts and guarded raw methods</li><li>Every mutation is doubly gated</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/telegram-user">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">08</div>
+        <div class="skill-main">
+          <div class="tags"><span>YouTrack</span><span>Issues</span><span>Knowledge Base</span><span>Write gate</span></div>
+          <h3>youtrack</h3>
+          <p>One generic skill for YouTrack issues, comments, users, projects, custom-field discovery and Knowledge Base articles—without hardcoded projects or fields.</p>
+          <ul><li>Issue/article search and inspection</li><li>Schema-first issue creation</li><li>Environment-only bearer token</li><li>Create/update/comment writes are gated</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/youtrack">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">09</div>
+        <div class="skill-main">
+          <div class="tags"><span>TIDAL</span><span>Account</span><span>Playlists</span><span>No recommendations</span></div>
+          <h3>tidal</h3>
+          <p>Perform explicit TIDAL account tasks requested by the user: OAuth, search, library inspection, playlists and favorites. It deliberately contains no recommendation or vibe logic.</p>
+          <ul><li>Search tracks, albums, artists and playlists</li><li>Inspect library, favorites and playlist tracks</li><li>Guarded playlist/favorite mutations</li><li>No similarity, BPM, mood or auto-sorting</li></ul>
+        </div>
+        <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/tidal">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
       </article>
     </section>
 
