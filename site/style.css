@@ -54,6 +54,7 @@ main { max-width: 1180px; margin: auto; padding: 0 24px; }
 .section-heading > p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.6; }
 
 .skill-card { display: grid; grid-template-columns: 80px 1fr 210px; gap: 34px; padding: 38px; border: 1px solid var(--ink); background: var(--card); box-shadow: 10px 10px 0 var(--ink); }
+.skill-card + .skill-card { margin-top: 40px; }
 .skill-number { font: 700 15px ui-monospace, monospace; }
 .tags { display: flex; gap: 8px; flex-wrap: wrap; }
 .tags span { padding: 5px 8px; border: 1px solid var(--line); font: 700 10px ui-monospace, monospace; letter-spacing: .08em; }

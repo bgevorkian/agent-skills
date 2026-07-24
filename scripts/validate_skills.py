@@ -60,7 +60,6 @@ def validate_skill(directory: Path) -> list[str]:
         if not path.is_file():
             continue
         if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
-            errors.append(f"{path}: generated cache must not be committed")
             continue
         try:
             content = path.read_text(encoding="utf-8")

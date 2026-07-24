@@ -19,5 +19,13 @@ jobs:
           python-version: "3.13"
       - name: Validate Agent Skills
         run: uv run --python 3.13 scripts/validate_skills.py
+      - name: Test ClickHouse skill
+        run: uv run --python 3.13 --with clickhouse-connect python skills/clickhouse-readonly/tests/test_ch.py
+      - name: Test PostgreSQL skill
+        run: uv run --python 3.13 --with asyncpg python skills/postgres-readonly/tests/test_pg.py
+      - name: Test translation skill
+        run: |
+          uv run --python 3.13 --with beautifulsoup4 --with lxml --with pypdf --with pymupdf python skills/epub-ai-translate/tests/test_markup.py
+          uv run --python 3.13 --with beautifulsoup4 --with lxml --with pypdf --with pymupdf python skills/epub-ai-translate/tests/test_pdf_extract.py
       - name: Check whitespace
         run: git diff --check

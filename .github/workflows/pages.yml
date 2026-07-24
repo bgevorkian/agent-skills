@@ -27,6 +27,10 @@ jobs:
           python-version: "3.13"
       - name: Validate Agent Skills
         run: uv run --python 3.13 scripts/validate_skills.py
+      - name: Test database skills
+        run: |
+          uv run --python 3.13 --with clickhouse-connect python skills/clickhouse-readonly/tests/test_ch.py
+          uv run --python 3.13 --with asyncpg python skills/postgres-readonly/tests/test_pg.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

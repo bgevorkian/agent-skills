@@ -35,7 +35,7 @@
     <section id="catalog" class="catalog">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">CATALOG · 01</p>
+          <p class="eyebrow">CATALOG · 03</p>
           <h2>Published skills</h2>
         </div>
         <p>Every skill is audited before publication. Internal infrastructure and credentials never belong here.</p>
@@ -59,6 +59,44 @@
           <button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button>
         </div>
       </article>
+
+      <article class="skill-card">
+        <div class="skill-number">02</div>
+        <div class="skill-main">
+          <div class="tags"><span>ClickHouse</span><span>Read-only</span><span>JSON</span><span>TLS</span></div>
+          <h3>clickhouse-readonly</h3>
+          <p>A portable ClickHouse query skill with no bundled infrastructure. Configure it through environment variables or non-secret flags, then safely inspect databases, tables, schemas, and query results.</p>
+          <ul>
+            <li>Server setting <code>readonly=1</code></li>
+            <li>Local DDL/DML and multi-statement guard</li>
+            <li>Execution time and result-row limits</li>
+            <li>Parameterized queries + JSON-safe values</li>
+          </ul>
+        </div>
+        <div class="skill-actions">
+          <a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/clickhouse-readonly">Open skill ↗</a>
+          <button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button>
+        </div>
+      </article>
+
+      <article class="skill-card">
+        <div class="skill-number">03</div>
+        <div class="skill-main">
+          <div class="tags"><span>PostgreSQL</span><span>Fan-out</span><span>Read-only</span><span>JSON</span></div>
+          <h3>postgres-readonly</h3>
+          <p>Safe PostgreSQL access for one database or a bounded set of hosts. Uses standard PG environment settings, TLS by default, read-only transactions, parameterized queries, and structured per-host results.</p>
+          <ul>
+            <li>Single-host and parallel multi-host queries</li>
+            <li>Read-only transaction enforcement</li>
+            <li>Schema/table/column inspection</li>
+            <li>Result truncation and structured errors</li>
+          </ul>
+        </div>
+        <div class="skill-actions">
+          <a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/postgres-readonly">Open skill ↗</a>
+          <button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button>
+        </div>
+      </article>
     </section>
 
     <section class="install">
@@ -70,7 +108,7 @@
         <div class="terminal-bar"><i></i><i></i><i></i><span>shell</span></div>
         <pre><code><span>$</span> git clone https://github.com/bgevorkian/agent-skills.git
 <span>$</span> mkdir -p ~/.agents/skills
-<span>$</span> cp -R agent-skills/skills/epub-ai-translate ~/.agents/skills/</code></pre>
+<span>$</span> cp -R agent-skills/skills/&lt;skill-name&gt; ~/.agents/skills/</code></pre>
       </div>
     </section>
   </main>
