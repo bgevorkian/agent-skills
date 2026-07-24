@@ -48,7 +48,7 @@ Main-session audit completed:
 
 ## Release status
 
-Released in commit `1c2421a` (`feat: publish generic operations and account skills`). Both GitHub Actions workflows completed successfully, the live Pages catalog exposes all 9 skills, and the local checkout was clean after deployment verification.
+Released in commit `1c2421a` (`feat: publish generic operations and account skills`). Both GitHub Actions workflows completed successfully and the live Pages catalog exposes all 9 skills. A matching `a/` SVG favicon was previewed locally and approved before publication.
 
 ## Never publish as-is
 
