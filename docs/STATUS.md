@@ -6,7 +6,6 @@ Last updated: 2026-07-24
 
 - Public repo: https://github.com/bgevorkian/agent-skills
 - GitHub Pages: https://bgevorkian.github.io/agent-skills/
-- Local checkout: `C:\Users\bgevorkian\agent-skills`
 - Published and validated: 10 skills in the live catalog, including `video-to-notes`.
 
 ## Current release batch
