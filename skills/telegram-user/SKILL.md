@@ -28,6 +28,10 @@ Default session path:
 
 Never commit session files or secrets.
 
+## Secret setup
+
+Before configuring API credentials, ask which secret manager and local profile the user wants. Follow [Secure secret profiles](https://github.com/bgevorkian/agent-skills/blob/main/docs/secure-secrets.md). Do not invent or publish profile names or secret references. Treat the Telethon session as a separate credential file with private permissions. If the user asks for the author's method, use process-scoped `pass-cli run` for environment credentials. Never request or display resolved values or session contents.
+
 ## Run
 
 From this skill directory:

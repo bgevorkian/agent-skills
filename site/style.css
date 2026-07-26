@@ -67,6 +67,7 @@ main { max-width: 1180px; margin: auto; padding: 0 24px; }
 .skill-actions button { color: #fff; background: var(--ink); }
 
 .install { display: grid; grid-template-columns: .8fr 1.2fr; gap: 64px; align-items: center; padding: 90px 0 120px; border-top: 1px solid var(--line); }
+.install-copy { margin: 0 0 28px; color: var(--muted); font-size: 17px; line-height: 1.7; }
 .terminal { overflow: hidden; color: #e8e8e8; background: #171717; box-shadow: 10px 10px 0 var(--acid); }
 .terminal-bar { display: flex; align-items: center; gap: 7px; padding: 12px 16px; border-bottom: 1px solid #383838; }
 .terminal-bar i { width: 9px; height: 9px; border-radius: 50%; background: #666; }

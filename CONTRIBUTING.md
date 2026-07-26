@@ -17,6 +17,7 @@ Before publishing:
 - no tokens, API keys, passwords, cookies, private keys, or session files;
 - no personal absolute paths;
 - no internal hostnames, databases, proprietary URLs, or employer-specific instructions;
+- credential-aware skills document only generic runtime inputs and link to [Secure secret profiles](docs/secure-secrets.md); user-specific profiles and references remain private;
 - source/user files are never committed;
 - destructive actions require explicit confirmation;
 - generated caches and output artifacts are excluded.
