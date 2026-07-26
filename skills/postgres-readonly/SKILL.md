@@ -28,6 +28,10 @@ Use `DATABASE_URL` / `--dsn` or standard PostgreSQL environment variables:
 
 Never pass a password as a CLI argument. Inject `PGPASSWORD` with a secret manager.
 
+## Secret setup
+
+Before configuring credentials, ask which secret manager and local profile the user wants. Follow [Secure secret profiles](https://github.com/bgevorkian/agent-skills/blob/main/docs/secure-secrets.md). Do not invent or publish profile names, hosts, templates, or secret references. If the user asks for the author's method, use a per-profile Proton Pass pointer file with process-scoped `pass-cli run`. Never request or display resolved values.
+
 ## Run
 
 From this skill directory:

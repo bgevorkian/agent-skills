@@ -25,6 +25,10 @@ Set environment variables outside shell history and committed files.
 
 Use a token with the minimum scope needed. Never print or paste the token.
 
+## Secret setup
+
+Before configuring credentials, ask which secret manager and local profile the user wants. Follow [Secure secret profiles](https://github.com/bgevorkian/agent-skills/blob/main/docs/secure-secrets.md). Do not invent or publish profile names, hosts, templates, or secret references. If the user asks for the author's method, use a per-profile Proton Pass pointer file with process-scoped `pass-cli run`. Never request or display resolved values.
+
 ## Run
 
 From this skill directory:

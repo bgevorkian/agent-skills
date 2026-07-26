@@ -47,6 +47,10 @@ Session lookup order:
    - macOS: `~/Library/Application Support/agent-skills/tidal/session.json`
    - Linux: `${XDG_DATA_HOME:-~/.local/share}/agent-skills/tidal/session.json`
 
+## Secret setup
+
+Follow [Secure secret profiles](https://github.com/bgevorkian/agent-skills/blob/main/docs/secure-secrets.md). Treat the TIDAL session as a credential file, not an ordinary environment variable: keep it outside the skill with private permissions and never print or commit its contents. Ask before changing authentication or materializing a temporary file from a secret manager.
+
 ## Run
 
 From this skill directory:

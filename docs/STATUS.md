@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-07-24
+Last updated: 2026-07-26
 
 ## Repository
 
@@ -9,6 +9,8 @@ Last updated: 2026-07-24
 - Published and validated: 10 skills in the live catalog, including `video-to-notes`.
 
 ## Current release batch
+
+Secure-secret decision: public skills expose only generic runtime inputs. User-specific static or dynamic profiles, hosts and secret-manager references remain private; only the selected profile is injected into one child process. The author's concrete implementation uses per-profile Proton Pass pointer files, while the public method remains provider-neutral.
 
 User-approved public generic skills:
 

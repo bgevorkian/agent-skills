@@ -41,6 +41,12 @@ Copy-Item -Recurse agent-skills/skills/<skill-name> "$HOME/.agents/skills/"
 
 Pi discovers `~/.agents/skills/` and `~/.pi/agent/skills/`. For another harness, use its documented Agent Skills directory or load the skill explicitly.
 
+## Secure secret profiles
+
+Skills use generic runtime inputs; user-specific hosts, profile names and secret references stay outside the repository. Ask which secret manager the user prefers and inject only the selected local profile into one child process. Proton Pass is the author's method, not a dependency.
+
+Read [Secure secret profiles](docs/secure-secrets.md) before configuring credentials or session files.
+
 ### Pi command
 
 After restarting Pi, force-load a skill with:
