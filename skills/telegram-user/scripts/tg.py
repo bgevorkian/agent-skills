@@ -22,46 +22,10 @@ from telethon.tl.tlobject import TLObject
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 1000
 DEFAULT_TIMEOUT = 30.0
-READ_PREFIXES = ("Get", "Search", "Check", "Resolve", "Fetch", "Load")
-WRITE_TOKENS = (
-    "Accept",
-    "Add",
-    "Archive",
-    "Block",
-    "Cancel",
-    "Create",
-    "Delete",
-    "Discard",
-    "Drop",
-    "Edit",
-    "Forward",
-    "Import",
-    "Install",
-    "Invite",
-    "Join",
-    "Kick",
-    "Leave",
-    "Mark",
-    "Pin",
-    "Read",
-    "Register",
-    "Remove",
-    "Report",
-    "Reset",
-    "Revoke",
-    "Save",
-    "Send",
-    "Set",
-    "Sign",
-    "Start",
-    "Stop",
-    "Toggle",
-    "Unarchive",
-    "Unblock",
-    "Uninstall",
-    "Unpin",
-    "Update",
-)
+RAW_READ_ALLOWLIST = frozenset({
+    "contacts.SearchRequest",
+    "messages.GetDialogFiltersRequest",
+})
 
 
 class CLIError(RuntimeError):
@@ -186,13 +150,22 @@ def inflate_tl(value: Any) -> Any:
 
 
 def raw_method_may_write(method_name: str) -> bool:
-    leaf = method_name.split(".")[-1]
-    if leaf.startswith("functions."):
-        leaf = leaf.split(".")[-1]
-    base = leaf[:-7] if leaf.endswith("Request") else leaf
-    if any(token in base for token in WRITE_TOKENS):
-        return True
-    return not base.startswith(READ_PREFIXES)
+    normalized = method_name.removeprefix("functions.")
+    return normalized not in RAW_READ_ALLOWLIST
+
+
+def secure_session_path(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name != "nt":
+        path.parent.chmod(0o700)
+        for candidate in (
+            path,
+            path.with_name(path.name + "-journal"),
+            path.with_name(path.name + "-wal"),
+            path.with_name(path.name + "-shm"),
+        ):
+            if candidate.exists():
+                candidate.chmod(0o600)
 
 
 def require_write_access(config: Config, confirmed: bool, *, reason: str) -> None:
@@ -228,13 +201,15 @@ def require_api_credentials(config: Config) -> tuple[int, str]:
 
 def build_client(config: Config) -> TelegramClient:
     api_id, api_hash = require_api_credentials(config)
-    config.session_file.parent.mkdir(parents=True, exist_ok=True)
-    return TelegramClient(
+    secure_session_path(config.session_file)
+    client = TelegramClient(
         str(config.session_file),
         api_id,
         api_hash,
         receive_updates=False,
     )
+    secure_session_path(config.session_file)
+    return client
 
 
 async def ensure_authorized(client: TelegramClient) -> None:
@@ -336,7 +311,10 @@ def message_summary(message: Any) -> dict[str, Any]:
 
 
 async def run_with_timeout(config: Config, coro):
-    return await asyncio.wait_for(coro, timeout=config.timeout)
+    try:
+        return await asyncio.wait_for(coro, timeout=config.timeout)
+    finally:
+        secure_session_path(config.session_file)
 
 
 async def cmd_login(args: argparse.Namespace, config: Config) -> dict[str, Any]:
@@ -348,8 +326,9 @@ async def cmd_login(args: argparse.Namespace, config: Config) -> dict[str, Any]:
         api_hash = prompt_text("TELEGRAM_API_HASH", secret=True)
     phone = args.phone or prompt_text("phone")
 
-    config.session_file.parent.mkdir(parents=True, exist_ok=True)
+    secure_session_path(config.session_file)
     client = TelegramClient(str(config.session_file), api_id, api_hash, receive_updates=False)
+    secure_session_path(config.session_file)
     try:
         await client.connect()
         if not await client.is_user_authorized():
@@ -364,6 +343,7 @@ async def cmd_login(args: argparse.Namespace, config: Config) -> dict[str, Any]:
         return {"ok": True, "authorized": True, "user": await user_summary(client, me)}
     finally:
         await client.disconnect()
+        secure_session_path(config.session_file)
 
 
 async def cmd_status(args: argparse.Namespace, config: Config) -> dict[str, Any]:

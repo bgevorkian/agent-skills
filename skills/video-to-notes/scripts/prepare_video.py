@@ -252,6 +252,7 @@ def build_ytdlp_command(
 ) -> list[str]:
     return [
         "yt-dlp",
+        "--use-extractors", "default,-generic",
         "--no-playlist",
         "--quiet",
         "--no-warnings",

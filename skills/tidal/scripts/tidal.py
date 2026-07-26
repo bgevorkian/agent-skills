@@ -54,6 +54,14 @@ def session_file_path(
     return user_data_dir(env=env, home=home, platform=platform) / "session.json"
 
 
+def secure_session_path(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if os.name != "nt":
+        path.parent.chmod(0o700)
+        if path.exists():
+            path.chmod(0o600)
+
+
 def env_write_enabled(env: dict[str, str] | None = None) -> bool:
     env = env or os.environ
     return env.get("TIDAL_ALLOW_WRITE", "").strip().lower() == "true"
@@ -265,6 +273,7 @@ def parse_reference(value: str, expected_kind: str | None = None) -> dict[str, s
 
 def load_session(require_login: bool = True) -> tuple[tidalapi.Session, Path]:
     path = session_file_path()
+    secure_session_path(path)
     if not path.exists():
         raise ValueError(f"missing session file; run auth-login first ({path})")
     session = tidalapi.Session()
@@ -276,6 +285,7 @@ def load_session(require_login: bool = True) -> tuple[tidalapi.Session, Path]:
 
 def session_status() -> dict[str, Any]:
     path = session_file_path()
+    secure_session_path(path)
     status: dict[str, Any] = {
         "session_file": str(path),
         "exists": path.exists(),
@@ -300,12 +310,13 @@ def save_session_interactive() -> dict[str, Any]:
         current["message"] = "session already valid"
         return current
     path = session_file_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    secure_session_path(path)
     session = tidalapi.Session()
     session.login_oauth_simple(fn_print=lambda message: print(message, file=sys.stderr))
     if not session.check_login():
         raise ValueError("TIDAL login did not complete")
     session.save_session_to_file(path)
+    secure_session_path(path)
     return {
         "logged_in": True,
         "session_file": str(path),
