@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import io
 import json
 import os
@@ -20,6 +21,7 @@ MAX_RESPONSE_BYTES = 1_000_000
 ERROR_BODY_BYTES = 4_096
 WRITE_ENV_NAME = "PREFECT_ALLOW_WRITE"
 WRITE_ENV_VALUE = "true"
+INSECURE_HTTP_ENV_NAME = "PREFECT_ALLOW_INSECURE_HTTP"
 UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
@@ -29,6 +31,26 @@ class CliError(Exception):
     pass
 
 
+def url_origin(url: str) -> tuple[str, str, int | None]:
+    parsed = urllib.parse.urlsplit(url)
+    scheme = parsed.scheme.lower()
+    default_port = 443 if scheme == "https" else 80 if scheme == "http" else None
+    return scheme, (parsed.hostname or "").lower(), parsed.port or default_port
+
+
+class BearerRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self, api_key: str, allow_insecure_http: bool = False) -> None:
+        self.api_key = api_key
+        self.allow_insecure_http = allow_insecure_http
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        if self.api_key and url_origin(req.full_url) != url_origin(target):
+            raise CliError("refusing to follow bearer-token redirect to a different origin")
+        require_safe_bearer_transport(target, self.api_key, self.allow_insecure_http)
+        return super().redirect_request(req, fp, code, msg, headers, target)
+
+
 class PrefectClient:
     def __init__(
         self,
@@ -36,11 +58,15 @@ class PrefectClient:
         api_key: str = "",
         timeout: int = DEFAULT_TIMEOUT,
         opener: Callable[..., Any] | None = None,
+        allow_insecure_http: bool = False,
     ) -> None:
         self.api_url = api_url.rstrip("/")
+        require_safe_bearer_transport(self.api_url, api_key, allow_insecure_http)
         self.api_key = api_key
         self.timeout = timeout
-        self.opener = opener or urllib.request.urlopen
+        self.opener = opener or urllib.request.build_opener(
+            BearerRedirectHandler(api_key, allow_insecure_http)
+        ).open
 
     def request(
         self,
@@ -106,6 +132,28 @@ def shorten(text: str, limit: int = 300) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1] + "…"
+
+
+def require_safe_bearer_transport(
+    api_url: str,
+    api_key: str,
+    allow_insecure_http: bool = False,
+) -> None:
+    parsed = urllib.parse.urlsplit(api_url)
+    if not api_key or parsed.scheme.lower() == "https":
+        return
+    hostname = parsed.hostname or ""
+    local = hostname == "localhost" or hostname.endswith(".localhost")
+    try:
+        local = local or ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        pass
+    if local or allow_insecure_http:
+        return
+    raise CliError(
+        "refusing to send PREFECT_API_KEY over remote plaintext HTTP; use HTTPS, "
+        f"localhost, or explicitly set {INSECURE_HTTP_ENV_NAME}=true"
+    )
 
 
 def bounded_int(value: int | None, default: int) -> int:
@@ -760,6 +808,7 @@ def execute(
             api_url=resolve_api_url(args, env),
             api_key=resolve_api_key(args, env),
             timeout=timeout,
+            allow_insecure_http=env.get(INSECURE_HTTP_ENV_NAME) == "true",
         )
     if args.command in WRITE_COMMANDS:
         ensure_write_allowed(args, env)

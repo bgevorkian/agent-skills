@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import re
@@ -43,11 +44,32 @@ class HttpFailure(CliError):
     pass
 
 
+def url_origin(url: str) -> tuple[str, str, int | None]:
+    parsed = urllib.parse.urlsplit(url)
+    scheme = parsed.scheme.lower()
+    default_port = 443 if scheme == "https" else 80 if scheme == "http" else None
+    return scheme, (parsed.hostname or "").lower(), parsed.port or default_port
+
+
+class BearerRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def __init__(self, token: str) -> None:
+        self.token = token
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = urllib.parse.urljoin(req.full_url, newurl)
+        if self.token and url_origin(req.full_url) != url_origin(target):
+            raise CliError("refusing to follow bearer-token redirect to a different origin")
+        require_safe_bearer_transport(target, self.token)
+        return super().redirect_request(req, fp, code, msg, headers, target)
+
+
 class YouTrackClient:
-    def __init__(self, base_url: str, token: str, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(self, base_url: str, token: str, timeout: int = DEFAULT_TIMEOUT, opener=None):
         self.base_url = normalize_base_url(base_url)
+        require_safe_bearer_transport(self.base_url, token)
         self.token = token
         self.timeout = timeout
+        self.opener = opener or urllib.request.build_opener(BearerRedirectHandler(token)).open
         self._project_cache: dict[str, str] = {}
         self._field_cache: dict[str, list[dict[str, Any]]] = {}
         self._user_cache: dict[str, dict[str, Any]] = {}
@@ -69,7 +91,7 @@ class YouTrackClient:
             method=method,
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with self.opener(request, timeout=self.timeout) as response:
                 raw = response.read().decode("utf-8")
         except urllib.error.HTTPError as error:
             raise HttpFailure(format_http_error(error)) from error
@@ -175,6 +197,23 @@ def normalize_base_url(value: str) -> str:
     if not re.match(r"^https?://", base, re.IGNORECASE):
         raise CliError("YouTrack base URL must start with http:// or https://")
     return base
+
+
+def require_safe_bearer_transport(base_url: str, token: str) -> None:
+    if not token or urllib.parse.urlsplit(base_url).scheme.lower() == "https":
+        return
+    hostname = urllib.parse.urlsplit(base_url).hostname or ""
+    local = hostname == "localhost" or hostname.endswith(".localhost")
+    try:
+        local = local or ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        pass
+    if local or env_bool("YOUTRACK_ALLOW_INSECURE_HTTP", False):
+        return
+    raise CliError(
+        "refusing to send YOUTRACK_TOKEN over remote plaintext HTTP; use HTTPS, "
+        "localhost, or explicitly set YOUTRACK_ALLOW_INSECURE_HTTP=true"
+    )
 
 
 def require_env(name: str) -> str:

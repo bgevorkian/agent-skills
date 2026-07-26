@@ -11,6 +11,8 @@ def polish(source: Path, output: Path, drop_pages: set[int]) -> dict[str, object
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
+    if source in {output, temporary}:
+        raise ValueError("input and output PDF paths must be different")
     original = fitz.open(source)
     result = fitz.open()
     centered: list[int] = []

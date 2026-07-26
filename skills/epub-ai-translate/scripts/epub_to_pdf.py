@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import re
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -31,6 +33,51 @@ body.__epub_image_page img, body.__epub_image_page svg {
 }
 """
 
+MAX_EPUB_FILES = 10_000
+MAX_EPUB_SIZE = 512 * 1024 * 1024
+WORK_MARKER = ".epub-ai-translate-owned"
+
+
+def contained_path(root: Path, relative: str | Path) -> Path:
+    root = root.resolve()
+    target = (root / relative).resolve()
+    if target != root and root not in target.parents:
+        raise RuntimeError(f"EPUB path escapes the book directory: {relative}")
+    return target
+
+
+def safe_extract_epub(archive: zipfile.ZipFile, destination: Path) -> None:
+    entries = archive.infolist()
+    if len(entries) > MAX_EPUB_FILES or sum(item.file_size for item in entries) > MAX_EPUB_SIZE:
+        raise RuntimeError("EPUB is too large to extract safely")
+    destination.mkdir(parents=True, exist_ok=True)
+    for item in entries:
+        target = contained_path(destination, item.filename)
+        if item.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with archive.open(item) as source, target.open("wb") as output:
+            shutil.copyfileobj(source, output)
+
+
+def prepare_work_dir(work: Path, restart: bool, protected: tuple[Path, ...]) -> Path:
+    work = work.resolve()
+    for path in protected:
+        path = path.resolve()
+        if path == work or work in path.parents:
+            raise RuntimeError(f"work directory contains a protected input/output path: {path}")
+    marker = work / WORK_MARKER
+    if restart and work.exists():
+        if not marker.is_file():
+            raise RuntimeError(f"refusing to delete an unowned work directory: {work}")
+        shutil.rmtree(work)
+    if work.exists() and not marker.exists() and any(work.iterdir()):
+        raise RuntimeError(f"refusing to use a non-empty unowned work directory: {work}")
+    work.mkdir(parents=True, exist_ok=True)
+    marker.touch(exist_ok=True)
+    return work
+
 
 def find_chrome() -> Path:
     candidates = [
@@ -52,12 +99,12 @@ def spine_documents(book: Path) -> list[Path]:
     rootfile = container.find(".//{*}rootfile")
     if rootfile is None:
         raise RuntimeError("EPUB rootfile not found")
-    opf = book / Path(rootfile.attrib["full-path"])
+    opf = contained_path(book, rootfile.attrib["full-path"])
     package = ET.parse(opf).getroot()
     base = opf.parent
     manifest = {
         item.attrib["id"]: (
-            (base / Path(item.attrib["href"])).resolve(),
+            contained_path(book, base.relative_to(book) / item.attrib["href"]),
             item.attrib.get("media-type", ""),
         )
         for item in package.findall(".//{*}manifest/{*}item")
@@ -72,6 +119,29 @@ def spine_documents(book: Path) -> list[Path]:
 
 def patch_for_print(path: Path) -> None:
     soup = BeautifulSoup(path.read_bytes(), "html.parser")
+    for tag in soup.find_all(["script", "iframe", "object", "embed", "base"]):
+        tag.decompose()
+    for tag in soup.find_all(True):
+        for attribute in list(tag.attrs):
+            if attribute.lower().startswith("on"):
+                del tag.attrs[attribute]
+        for attribute in ("href", "src", "poster", "action", "formaction", "xlink:href"):
+            value = tag.get(attribute)
+            if isinstance(value, str) and (
+                value.startswith(("/", "//"))
+                or re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", value)
+            ):
+                del tag.attrs[attribute]
+        if tag.get("http-equiv"):
+            tag.decompose()
+    for style_tag in soup.find_all("style"):
+        if style_tag.string:
+            style_tag.string.replace_with(re.sub(
+                r"@import\s+[^;]+;|url\(\s*['\"]?(?:[a-z]+:|//|/)[^)]+\)",
+                "",
+                style_tag.string,
+                flags=re.I,
+            ))
     body = soup.body
     if body is not None and not body.get_text(" ", strip=True) and body.find(["img", "svg"]):
         classes = list(body.get("class", []))
@@ -80,10 +150,15 @@ def patch_for_print(path: Path) -> None:
         body["class"] = classes
     style = soup.new_tag("style")
     style.string = PRINT_STYLE
-    if soup.head is None:
+    head = soup.head
+    if head is None:
         head = soup.new_tag("head")
         soup.insert(0, head)
-    soup.head.append(style)
+    csp = soup.new_tag("meta")
+    csp["http-equiv"] = "Content-Security-Policy"
+    csp["content"] = "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+    head.append(csp)
+    head.append(style)
     path.write_text(str(soup), encoding="utf-8")
 
 
@@ -91,6 +166,8 @@ def convert(epub: Path, pdf: Path, chrome: Path | None = None) -> None:
     epub = epub.resolve()
     pdf = pdf.resolve()
     chrome = (chrome or find_chrome()).resolve()
+    if epub == pdf:
+        raise ValueError("input EPUB and output PDF must be different files")
     pdf.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="epub_pdf_") as temp:
@@ -100,7 +177,7 @@ def convert(epub: Path, pdf: Path, chrome: Path | None = None) -> None:
         book.mkdir()
         parts.mkdir()
         with zipfile.ZipFile(epub) as archive:
-            archive.extractall(book)
+            safe_extract_epub(archive, book)
 
         documents = spine_documents(book)
         writer = PdfWriter()
@@ -112,8 +189,12 @@ def convert(epub: Path, pdf: Path, chrome: Path | None = None) -> None:
                     str(chrome),
                     "--headless",
                     "--disable-gpu",
+                    "--disable-javascript",
+                    "--disable-background-networking",
+                    "--disable-extensions",
+                    "--no-first-run",
                     "--no-pdf-header-footer",
-                    "--allow-file-access-from-files",
+                    f"--user-data-dir={root / 'chrome-profile'}",
                     f"--print-to-pdf={part}",
                     document.as_uri(),
                 ],
