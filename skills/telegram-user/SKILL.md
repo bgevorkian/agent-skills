@@ -5,7 +5,7 @@ compatibility: Python 3.11+, uv, Telethon, interactive terminal access for login
 license: MIT
 metadata:
   author: bgevorkian
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Telegram User
@@ -26,7 +26,7 @@ Default session path:
 - Windows: `%APPDATA%/telegram-user/telethon.session`
 - Linux/macOS: `$XDG_DATA_HOME/telegram-user/telethon.session` or `~/.local/share/telegram-user/telethon.session`
 
-Never commit session files or secrets.
+The session file contains the Telegram authorization key and is machine-local state. Authenticate once on each computer. Do not store the session file in Git, a password manager, a shared drive, or another synchronization service. A password manager may provide `TELEGRAM_API_ID` and `TELEGRAM_API_HASH`, but it does not replace the per-machine login session.
 
 ## Secret setup
 
@@ -45,6 +45,7 @@ uv run --python 3.13 --with telethon python scripts/tg.py messages me --limit 20
 uv run --python 3.13 --with telethon python scripts/tg.py search "invoice" --chat me --limit 20
 uv run --python 3.13 --with telethon python scripts/tg.py saved messages --limit 20
 uv run --python 3.13 --with telethon python scripts/tg.py folders list
+uv run --python 3.13 --with telethon python scripts/tg.py folders get work
 uv run --python 3.13 --with telethon python scripts/tg.py contacts list --limit 100
 uv run --python 3.13 --with telethon python scripts/tg.py raw messages.GetDialogFiltersRequest '{}'
 ```
@@ -68,7 +69,7 @@ Guarded operations:
 
 - `send`, `edit`, `delete`
 - `saved send`
-- `folders add-peers`, `folders remove-peers`, `folders set-title`
+- `folders add-peers`, `folders remove-peers`, `folders move-peers`, `folders set-title`
 - `contacts add`, `contacts delete`
 - `raw` when the method is not confidently read-only
 
@@ -77,6 +78,8 @@ Read commands do not require the gate.
 ## Notes
 
 - Login never prints codes, API hashes, session bytes, or secrets.
+- Set `TELEGRAM_SESSION_FILE` when an agent-specific local state path is preferred; its parent directory is created automatically.
+- `folders move-peers --to DEST [--from SOURCE] PEER...` adds first, then removes from the source; if removal fails, peers remain safely present in both folders rather than being lost.
 - Prompts are written to stderr so stdout stays machine-readable JSON.
 - `raw` accepts inline JSON, `@file.json`, or `-` for stdin.
 - Complex raw arguments may use Telethon-style type objects such as `{"_":"InputPeerSelf"}`.

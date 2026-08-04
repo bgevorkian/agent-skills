@@ -127,8 +127,8 @@
         <div class="skill-main">
           <div class="tags"><span>Prefect 3</span><span>Operations</span><span>REST</span><span>Write gate</span></div>
           <h3>prefect-ops</h3>
-          <p>Inspect flow/task runs, logs, deployments, schedules, variables, automations and work pools. Operational changes require two independent confirmations.</p>
-          <ul><li>Run and deployment diagnostics</li><li>Logs, schedules and automation inspection</li><li>Generic endpoint + environment-only token</li><li>Doubly gated operational mutations</li></ul>
+          <p>Inspect flow/task runs, logs, deployments, schedules, variables, blocks, automations and work pools. Operational changes require two independent confirmations.</p>
+          <ul><li>Run and deployment diagnostics</li><li>Schedules, blocks and automation inspection</li><li>Secret block data is always redacted</li><li>Doubly gated operational mutations</li></ul>
         </div>
         <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/prefect-ops">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
       </article>
@@ -138,8 +138,8 @@
         <div class="skill-main">
           <div class="tags"><span>Telegram</span><span>Telethon</span><span>MTProto</span><span>Write gate</span></div>
           <h3>telegram-user</h3>
-          <p>Use a user's own Telegram account for explicit dialog, message, search, folder and contact tasks. Sessions live in a generic per-user data directory.</p>
-          <ul><li>Interactive login without secret logging</li><li>Dialogs, messages, search and Saved Messages</li><li>Folders, contacts and guarded raw methods</li><li>Every mutation is doubly gated</li></ul>
+          <p>Use a user's own Telegram account for explicit dialog, message, search, folder and contact tasks. Each computer keeps its own local authorization session.</p>
+          <ul><li>Interactive per-machine login without secret logging</li><li>Dialogs, messages, search and Saved Messages</li><li>Folders, contacts and guarded raw methods</li><li>Every mutation is doubly gated</li></ul>
         </div>
         <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/telegram-user">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
       </article>
@@ -149,8 +149,8 @@
         <div class="skill-main">
           <div class="tags"><span>YouTrack</span><span>Issues</span><span>Knowledge Base</span><span>Write gate</span></div>
           <h3>youtrack</h3>
-          <p>One generic skill for YouTrack issues, comments, users, projects, custom-field discovery and Knowledge Base articles—without hardcoded projects or fields.</p>
-          <ul><li>Issue/article search and inspection</li><li>Schema-first issue creation</li><li>Environment-only bearer token</li><li>Create/update/comment writes are gated</li></ul>
+          <p>One generic skill for YouTrack issues, comments, attachments, activities, commands, custom-field discovery and Knowledge Base articles—without hardcoded projects or fields.</p>
+          <ul><li>Issue/article approval-first workflows</li><li>Schema-first issue creation</li><li>Attachments and activity history</li><li>Every mutation is doubly gated</li></ul>
         </div>
         <div class="skill-actions"><a href="https://github.com/bgevorkian/agent-skills/tree/main/skills/youtrack">Open skill ↗</a><button type="button" data-copy="git clone https://github.com/bgevorkian/agent-skills.git">Copy clone command</button></div>
       </article>

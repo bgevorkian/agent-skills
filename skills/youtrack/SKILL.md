@@ -1,16 +1,21 @@
 ---
 name: youtrack
-description: Read and selectively write YouTrack issues, comments, projects, users, custom-field schema, and knowledge-base articles through a UTF-8 JSON REST CLI. Use when the user explicitly asks about YouTrack and you need generic, self-hosted access configured only by environment variables.
+description: Read and selectively write YouTrack issues, comments, attachments, activities, commands, projects, users, custom-field schema, and knowledge-base articles through a UTF-8 JSON REST CLI. Use for explicit YouTrack requests, including creating tickets and publishing or updating KB articles, with approval-first workflows.
 compatibility: Python 3.11+, uv, network access to a YouTrack server, and environment variables YOUTRACK_URL and YOUTRACK_TOKEN. Optional defaults: YOUTRACK_PROJECT and YOUTRACK_ALLOW_WRITE.
 license: MIT
 metadata:
   author: bgevorkian
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # YouTrack
 
-Generic YouTrack REST JSON CLI with stdlib HTTP only. Reads cover the current user, projects, users, issues, comments, custom-field schema, and knowledge-base articles. Writes are intentionally gated.
+Generic YouTrack REST JSON CLI with stdlib HTTP only. Reads cover the current user, projects, users, issues, comments, attachments, activity history, custom-field schema, and knowledge-base articles. Writes are intentionally gated.
+
+For approval-first procedural guidance, read the matching reference before acting:
+
+- issue creation: `references/create-issue.md`;
+- Knowledge Base publication/update: `references/kb-article.md`.
 
 ## Configuration
 
@@ -66,9 +71,12 @@ Without both, create/update/comment/article mutations fail locally before any re
 | `issues --query Q [--top N] [--skip N]` | issue search |
 | `issue ID` | one issue |
 | `comments ID [--top N] [--skip N]` | issue comments |
+| `attachments ID [--top N] [--skip N]` | issue attachments |
+| `activities ID [--top N] [--skip N]` | issue activity/changelog |
 | `fields --project KEY [--top N] [--skip N]` | project custom-field schema |
 | `articles --query Q [--top N] [--skip N]` | article search |
 | `article ID` | one article with content |
+| `article-attachments ID [--top N] [--skip N]` | article attachments |
 
 `KEY` can be a project short name or internal id. Output is UTF-8 JSON.
 
@@ -98,7 +106,16 @@ uv run --python 3.13 python scripts/yt.py --confirm-write article-create \
 YOUTRACK_ALLOW_WRITE=true \
 uv run --python 3.13 python scripts/yt.py --confirm-write article-update DEMO-A-1 \
   --content @article.md
+
+YOUTRACK_ALLOW_WRITE=true \
+uv run --python 3.13 python scripts/yt.py --confirm-write attach DEMO-123 screenshot.png
+
+YOUTRACK_ALLOW_WRITE=true \
+uv run --python 3.13 python scripts/yt.py --confirm-write command \
+  --query "State Fixed" --issues DEMO-123
 ```
+
+Additional controlled writes are `comment-update`, `comment-delete`, `article-attach`, and multi-issue `command`. Attachment uploads are bounded to 100 MiB combined per invocation.
 
 `--description`, `--text`, `--content`, and `--custom-fields` accept a literal string, `@file`, or `-` for stdin.
 
@@ -130,6 +147,7 @@ The CLI converts these to REST payloads using project field schema and user look
 - Uses Python stdlib `urllib`; no MCP and no third-party HTTP client.
 - Uses UTF-8 JSON for stdin, files, stdout, and request bodies.
 - Read commands support pagination with `--top` and `--skip`.
+- Comment edits/deletes, attachment uploads, commands, and article attachment uploads use the same double gate as every other mutation.
 - Helpful HTTP errors include status and server message when available.
 - The token is read from `YOUTRACK_TOKEN` and is never printed.
 - Keep `--top` bounded; the CLI rejects oversized page sizes.

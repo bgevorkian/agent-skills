@@ -154,9 +154,9 @@ def raw_method_may_write(method_name: str) -> bool:
     return normalized not in RAW_READ_ALLOWLIST
 
 
-def secure_session_path(path: Path) -> None:
+def secure_session_path(path: Path, *, platform: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if os.name != "nt":
+    if (platform or os.name) != "nt":
         path.parent.chmod(0o700)
         for candidate in (
             path,
@@ -275,6 +275,10 @@ async def dialog_filter_objects(client: TelegramClient) -> list[types.DialogFilt
 def dialog_filter_title(dialog_filter: types.DialogFilter) -> str:
     title = getattr(dialog_filter, "title", None)
     return getattr(title, "text", title) or ""
+
+
+def make_dialog_filter_title(value: str) -> types.TextWithEntities:
+    return types.TextWithEntities(text=value, entities=[])
 
 
 def find_dialog_filter(filters: list[types.DialogFilter], ref: str) -> types.DialogFilter:
@@ -600,13 +604,39 @@ async def cmd_folders_remove_peers(args: argparse.Namespace, config: Config) -> 
         await client.disconnect()
 
 
+async def cmd_folders_move_peers(args: argparse.Namespace, config: Config) -> dict[str, Any]:
+    require_write_access(config, args.confirm_write, reason="folder move")
+    client = build_client(config)
+    try:
+        await ensure_authorized(client)
+        filters = await dialog_filter_objects(client)
+        destination = find_dialog_filter(filters, args.destination)
+        source = find_dialog_filter(filters, args.source) if args.source else None
+        if source is not None and source.id == destination.id:
+            raise CLIError("source and destination folders must be different")
+        added = await mutate_folder_peers(
+            client, destination, args.peers, remove=False
+        )
+        removed = None
+        if source is not None:
+            removed = await mutate_folder_peers(client, source, args.peers, remove=True)
+        return {
+            "ok": True,
+            "peers": list(args.peers),
+            "added_to": added,
+            "removed_from": removed,
+        }
+    finally:
+        await client.disconnect()
+
+
 async def cmd_folders_set_title(args: argparse.Namespace, config: Config) -> dict[str, Any]:
     require_write_access(config, args.confirm_write, reason="folder update")
     client = build_client(config)
     try:
         await ensure_authorized(client)
         dialog_filter = find_dialog_filter(await dialog_filter_objects(client), args.ref)
-        dialog_filter.title = args.title
+        dialog_filter.title = make_dialog_filter_title(args.title)
         await client(functions.messages.UpdateDialogFilterRequest(id=dialog_filter.id, filter=dialog_filter))
         return {"ok": True, "folder_id": dialog_filter.id, "title": args.title}
     finally:
@@ -778,6 +808,14 @@ def build_parser() -> argparse.ArgumentParser:
     folders_remove.add_argument("ref")
     folders_remove.add_argument("peers", nargs="+")
     folders_remove.set_defaults(fn=cmd_folders_remove_peers)
+
+    folders_move = folders_sub.add_parser(
+        "move-peers", help="add peers to one folder and optionally remove them from another"
+    )
+    folders_move.add_argument("peers", nargs="+")
+    folders_move.add_argument("--to", dest="destination", required=True)
+    folders_move.add_argument("--from", dest="source")
+    folders_move.set_defaults(fn=cmd_folders_move_peers)
 
     folders_title = folders_sub.add_parser("set-title", help="rename a folder")
     folders_title.add_argument("ref")

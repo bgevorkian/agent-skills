@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import mimetypes
 import os
 import re
+import secrets
 import sys
 import urllib.error
 import urllib.parse
@@ -18,6 +20,7 @@ from uuid import UUID
 DEFAULT_TIMEOUT = 30
 DEFAULT_TOP = 50
 MAX_TOP = 1_000
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024
 
 ISSUE_FIELDS = (
     "id,idReadable,summary,description,created,updated,resolved,"
@@ -33,6 +36,39 @@ FIELD_SCHEMA_FIELDS = (
 )
 ARTICLE_FIELDS = "id,idReadable,summary,updated,parentArticle(id,idReadable,summary)"
 ARTICLE_GET_FIELDS = "id,idReadable,summary,content,updated,parentArticle(id,idReadable,summary)"
+ATTACHMENT_FIELDS = "id,name,size,mimeType,url,author(id,login,fullName)"
+ACTIVITY_FIELDS = (
+    "id,timestamp,author(id,login,fullName),category(id),"
+    "field(presentation,name),added(name,text,presentation),"
+    "removed(name,text,presentation)"
+)
+ACTIVITY_CATEGORIES = (
+    "CommentsCategory,CustomFieldCategory,IssueCreatedCategory,"
+    "IssueResolvedCategory,AttachmentsCategory,LinksCategory,"
+    "TagsCategory,SummaryCategory,DescriptionCategory"
+)
+ISSUE_FIELD_TYPES = {
+    "enum[1]": "SingleEnumIssueCustomField",
+    "enum[*]": "MultiEnumIssueCustomField",
+    "build[1]": "SingleBuildIssueCustomField",
+    "build[*]": "MultiBuildIssueCustomField",
+    "state[1]": "StateIssueCustomField",
+    "version[1]": "SingleVersionIssueCustomField",
+    "version[*]": "MultiVersionIssueCustomField",
+    "ownedField[1]": "SingleOwnedIssueCustomField",
+    "ownedField[*]": "MultiOwnedIssueCustomField",
+    "user[1]": "SingleUserIssueCustomField",
+    "user[*]": "MultiUserIssueCustomField",
+    "group[1]": "SingleGroupIssueCustomField",
+    "group[*]": "MultiGroupIssueCustomField",
+    "integer": "SimpleIssueCustomField",
+    "float": "SimpleIssueCustomField",
+    "date": "DateIssueCustomField",
+    "date and time": "SimpleIssueCustomField",
+    "period": "PeriodIssueCustomField",
+    "string": "SimpleIssueCustomField",
+    "text": "TextIssueCustomField",
+}
 SELECTOR_KEYS = {"$byName", "$byNames", "$user", "$users"}
 
 
@@ -104,6 +140,33 @@ class YouTrackClient:
 
     def post(self, path: str, body: Any = None, params: dict[str, Any] | None = None) -> Any:
         return self.request("POST", path, params=params, body=body)
+
+    def upload(
+        self,
+        path: str,
+        files: list[str],
+        params: dict[str, Any] | None = None,
+    ) -> Any:
+        data, boundary = build_multipart(files)
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/json",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }
+        request = urllib.request.Request(
+            build_api_url(self.base_url, path, params),
+            data=data,
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=max(self.timeout, 120)) as response:
+                raw = response.read().decode("utf-8")
+        except urllib.error.HTTPError as error:
+            raise HttpFailure(format_http_error(error)) from error
+        except urllib.error.URLError as error:
+            raise HttpFailure(f"request failed: {error.reason}") from error
+        return parse_json_response(raw)
 
     def projects(self, query: str | None = None, fields: str = PROJECT_FIELDS,
                  top: int = DEFAULT_TOP, skip: int = 0) -> Any:
@@ -252,6 +315,44 @@ def read_value(value: str | None) -> str | None:
     return value
 
 
+def build_multipart(files: list[str]) -> tuple[bytes, str]:
+    if not files:
+        raise CliError("at least one attachment file is required")
+    boundary = f"----youtrack-{secrets.token_hex(16)}"
+    chunks: list[bytes] = []
+    total_size = 0
+    for source in files:
+        path = Path(source).expanduser()
+        if not path.is_file():
+            raise CliError(f"attachment file not found: {source}")
+        name = path.name
+        if any(character in name for character in ('\r', '\n', '"')):
+            raise CliError(f"unsafe attachment file name: {name!r}")
+        declared_size = path.stat().st_size
+        if total_size + declared_size > MAX_UPLOAD_BYTES:
+            raise CliError(
+                f"combined attachment size exceeds {MAX_UPLOAD_BYTES} bytes"
+            )
+        content = path.read_bytes()
+        total_size += len(content)
+        if total_size > MAX_UPLOAD_BYTES:
+            raise CliError(
+                f"combined attachment size exceeds {MAX_UPLOAD_BYTES} bytes"
+            )
+        content_type = mimetypes.guess_type(name)[0] or "application/octet-stream"
+        chunks.append(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="upload"; filename="{name}"\r\n'
+                f"Content-Type: {content_type}\r\n\r\n"
+            ).encode("utf-8")
+            + content
+            + b"\r\n"
+        )
+    chunks.append(f"--{boundary}--\r\n".encode("ascii"))
+    return b"".join(chunks), boundary
+
+
 def read_json_arg(value: str | None, *, expected: type | tuple[type, ...] | None = None) -> Any:
     raw = read_value(value)
     if raw is None:
@@ -392,6 +493,7 @@ def resolve_custom_fields(client: YouTrackClient, project_selector: str,
         field_schema = find_schema_field(schema, item)
         payload = {key: value for key, value in item.items() if key not in SELECTOR_KEYS}
         payload.setdefault("name", field_name(field_schema))
+        payload.setdefault("$type", issue_custom_field_type(field_schema))
         if selector_key == "$byName":
             payload["value"] = resolve_bundle_value(field_schema, item[selector_key])
         elif selector_key == "$byNames":
@@ -417,6 +519,18 @@ def field_name(field_schema: dict[str, Any]) -> str:
     if not isinstance(field, dict) or not isinstance(field.get("name"), str):
         raise CliError("field schema entry is missing field.name")
     return field["name"]
+
+
+def issue_custom_field_type(field_schema: dict[str, Any]) -> str:
+    field = field_schema.get("field")
+    field_type = field.get("fieldType") if isinstance(field, dict) else None
+    type_id = field_type.get("id") if isinstance(field_type, dict) else None
+    if not isinstance(type_id, str) or type_id not in ISSUE_FIELD_TYPES:
+        raise CliError(
+            f"unsupported field type {type_id!r} for {field_name(field_schema)!r}; "
+            "pass a raw custom field object with an explicit $type"
+        )
+    return ISSUE_FIELD_TYPES[type_id]
 
 
 def find_schema_field(schema: list[dict[str, Any]], item: dict[str, Any]) -> dict[str, Any]:
@@ -484,6 +598,35 @@ def require_write_gate(confirm_write: bool) -> None:
         raise CliError("writes are disabled: set YOUTRACK_ALLOW_WRITE=true")
     if not confirm_write:
         raise CliError("writes require explicit --confirm-write")
+
+
+WRITE_COMMANDS = frozenset(
+    {
+        "create",
+        "update",
+        "comment",
+        "comment-update",
+        "comment-delete",
+        "attach",
+        "command",
+        "article-create",
+        "article-update",
+        "article-attach",
+    }
+)
+PAGED_READ_COMMANDS = frozenset(
+    {
+        "issues",
+        "comments",
+        "projects",
+        "users",
+        "fields",
+        "attachments",
+        "activities",
+        "articles",
+        "article-attachments",
+    }
+)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -556,6 +699,44 @@ def parser() -> argparse.ArgumentParser:
     comment.add_argument("id")
     comment.add_argument("--text", required=True, help="text, @file, or -")
 
+    comment_update = subcommands.add_parser(
+        "comment-update", help="update an issue comment"
+    )
+    comment_update.add_argument("id", help="issue id")
+    comment_update.add_argument("comment_id")
+    comment_update.add_argument("--text", required=True, help="text, @file, or -")
+
+    comment_delete = subcommands.add_parser(
+        "comment-delete", help="delete an issue comment"
+    )
+    comment_delete.add_argument("id", help="issue id")
+    comment_delete.add_argument("comment_id")
+
+    attach = subcommands.add_parser("attach", help="upload issue attachments")
+    attach.add_argument("id", help="issue id")
+    attach.add_argument("files", nargs="+")
+
+    attachments = subcommands.add_parser("attachments", help="list issue attachments")
+    attachments.add_argument("id", help="issue id")
+    attachments.add_argument("--fields", default=ATTACHMENT_FIELDS)
+    attachments.add_argument("--top", type=int, default=DEFAULT_TOP)
+    attachments.add_argument("--skip", type=int, default=0)
+
+    apply_command = subcommands.add_parser(
+        "command", help="apply a YouTrack command to issues"
+    )
+    apply_command.add_argument("--query", required=True, help="YouTrack command text")
+    apply_command.add_argument("--issues", required=True, help="comma-separated issue ids")
+    apply_command.add_argument("--comment", help="optional comment: text, @file, or -")
+    apply_command.add_argument("--silent", action="store_true")
+
+    activities = subcommands.add_parser("activities", help="list issue activity history")
+    activities.add_argument("id", help="issue id")
+    activities.add_argument("--categories", default=ACTIVITY_CATEGORIES)
+    activities.add_argument("--fields", default=ACTIVITY_FIELDS)
+    activities.add_argument("--top", type=int, default=DEFAULT_TOP)
+    activities.add_argument("--skip", type=int, default=0)
+
     article_create = subcommands.add_parser("article-create", help="create an article")
     article_create.add_argument("--project", default=os.environ.get("YOUTRACK_PROJECT"))
     article_create.add_argument("--summary", required=True)
@@ -566,6 +747,20 @@ def parser() -> argparse.ArgumentParser:
     article_update.add_argument("id")
     article_update.add_argument("--summary")
     article_update.add_argument("--content", help="text, @file, or -")
+
+    article_attach = subcommands.add_parser(
+        "article-attach", help="upload article attachments"
+    )
+    article_attach.add_argument("id", help="article id")
+    article_attach.add_argument("files", nargs="+")
+
+    article_attachments = subcommands.add_parser(
+        "article-attachments", help="list article attachments"
+    )
+    article_attachments.add_argument("id", help="article id")
+    article_attachments.add_argument("--fields", default=ATTACHMENT_FIELDS)
+    article_attachments.add_argument("--top", type=int, default=DEFAULT_TOP)
+    article_attachments.add_argument("--skip", type=int, default=0)
     return command
 
 
@@ -575,15 +770,20 @@ def require_project(value: str | None) -> str:
     return value
 
 
-def run(args: argparse.Namespace) -> Any:
+def run(
+    args: argparse.Namespace, client: YouTrackClient | None = None
+) -> Any:
     if args.timeout <= 0:
         raise CliError("--timeout must be positive")
-    if args.command in {"issues", "comments", "projects", "users", "fields", "articles"}:
+    if args.command in PAGED_READ_COMMANDS:
         ensure_top(args.top)
         ensure_skip(args.skip)
-    url = args.url or require_env("YOUTRACK_URL")
-    token = require_env("YOUTRACK_TOKEN")
-    client = YouTrackClient(url, token, timeout=args.timeout)
+    if args.command in WRITE_COMMANDS:
+        require_write_gate(args.confirm_write)
+    if client is None:
+        url = args.url or require_env("YOUTRACK_URL")
+        token = require_env("YOUTRACK_TOKEN")
+        client = YouTrackClient(url, token, timeout=args.timeout)
 
     if args.command == "issues":
         return client.get("issues", {
@@ -613,6 +813,21 @@ def run(args: argparse.Namespace) -> Any:
         })
     if args.command == "me":
         return client.get("users/me", {"fields": USER_FIELDS})
+    if args.command == "attachments":
+        return client.get(
+            f"issues/{args.id}/attachments",
+            {"fields": args.fields, "$top": args.top, "$skip": args.skip},
+        )
+    if args.command == "activities":
+        return client.get(
+            f"issues/{args.id}/activities",
+            {
+                "fields": args.fields,
+                "categories": args.categories,
+                "$top": args.top,
+                "$skip": args.skip,
+            },
+        )
     if args.command == "articles":
         return client.get("articles", {
             "query": args.query,
@@ -622,8 +837,12 @@ def run(args: argparse.Namespace) -> Any:
         })
     if args.command == "article":
         return client.get(f"articles/{args.id}", {"fields": args.fields})
+    if args.command == "article-attachments":
+        return client.get(
+            f"articles/{args.id}/attachments",
+            {"fields": args.fields, "$top": args.top, "$skip": args.skip},
+        )
     if args.command == "create":
-        require_write_gate(args.confirm_write)
         project = require_project(args.project)
         body: dict[str, Any] = {
             "project": {"id": client.resolve_project_id(project)},
@@ -641,7 +860,6 @@ def run(args: argparse.Namespace) -> Any:
             body["customFields"] = custom_fields
         return client.post("issues", body=body, params={"fields": "id,idReadable,summary"})
     if args.command == "update":
-        require_write_gate(args.confirm_write)
         body: dict[str, Any] = {}
         if args.summary is not None:
             body["summary"] = args.summary
@@ -659,14 +877,41 @@ def run(args: argparse.Namespace) -> Any:
             raise CliError("update needs at least one change")
         return client.post(f"issues/{args.id}", body=body, params={"fields": "id,idReadable,summary"})
     if args.command == "comment":
-        require_write_gate(args.confirm_write)
         return client.post(
             f"issues/{args.id}/comments",
             body={"text": read_value(args.text)},
             params={"fields": COMMENT_FIELDS},
         )
+    if args.command == "comment-update":
+        return client.post(
+            f"issues/{args.id}/comments/{args.comment_id}",
+            body={"text": read_value(args.text)},
+            params={"fields": COMMENT_FIELDS},
+        )
+    if args.command == "comment-delete":
+        client.request("DELETE", f"issues/{args.id}/comments/{args.comment_id}")
+        return {"deleted_comment": args.comment_id, "issue": args.id}
+    if args.command == "attach":
+        return client.upload(
+            f"issues/{args.id}/attachments",
+            args.files,
+            params={"fields": ATTACHMENT_FIELDS},
+        )
+    if args.command == "command":
+        issue_ids = [item.strip() for item in args.issues.split(",") if item.strip()]
+        if not issue_ids:
+            raise CliError("--issues must contain at least one issue id")
+        body = {
+            "query": args.query,
+            "issues": [{"idReadable": issue_id} for issue_id in issue_ids],
+            "silent": bool(args.silent),
+        }
+        comment = read_value(args.comment)
+        if comment is not None:
+            body["comment"] = comment
+        response = client.post("commands", body=body, params={"fields": "id"})
+        return response or {"applied": args.query, "issues": issue_ids}
     if args.command == "article-create":
-        require_write_gate(args.confirm_write)
         project = require_project(args.project)
         body = {
             "project": {"id": client.resolve_project_id(project)},
@@ -676,16 +921,27 @@ def run(args: argparse.Namespace) -> Any:
         if args.parent:
             body["parentArticle"] = {"id": args.parent}
         return client.post("articles", body=body, params={"fields": "id,idReadable,summary"})
-    require_write_gate(args.confirm_write)
-    body = {}
-    if args.summary is not None:
-        body["summary"] = args.summary
-    content = read_value(args.content)
-    if content is not None:
-        body["content"] = content
-    if not body:
-        raise CliError("article-update needs at least one change")
-    return client.post(f"articles/{args.id}", body=body, params={"fields": "id,idReadable,summary"})
+    if args.command == "article-update":
+        body = {}
+        if args.summary is not None:
+            body["summary"] = args.summary
+        content = read_value(args.content)
+        if content is not None:
+            body["content"] = content
+        if not body:
+            raise CliError("article-update needs at least one change")
+        return client.post(
+            f"articles/{args.id}",
+            body=body,
+            params={"fields": "id,idReadable,summary"},
+        )
+    if args.command == "article-attach":
+        return client.upload(
+            f"articles/{args.id}/attachments",
+            args.files,
+            params={"fields": ATTACHMENT_FIELDS},
+        )
+    raise CliError(f"unsupported command: {args.command}")
 
 
 def main() -> None:

@@ -75,6 +75,11 @@ class PrefectOpsTests(unittest.TestCase):
         params = pf.parse_params(args)
         self.assertEqual(params, {"from_file": [1, 2], "count": 2, "label": "demo"})
 
+        with self.assertRaises(pf.CliError):
+            pf.read_json_source('{"broken":')
+        with self.assertRaises(pf.CliError):
+            pf.read_json_source("@missing-params-file.json")
+
     def test_resolve_deployment_by_uuid_and_name_variants(self):
         def responder(method, path, body, allow_not_found):
             if method == "GET" and path == f"/deployments/{DEPLOYMENT_ID}":
@@ -129,7 +134,17 @@ class PrefectOpsTests(unittest.TestCase):
             ["run", "--deployment", DEPLOYMENT_ID],
             ["cancel", "--id", FLOW_RUN_ID],
             ["retry", "--id", FLOW_RUN_ID],
+            ["resume-run", "--id", FLOW_RUN_ID],
             ["delete", "--id", FLOW_RUN_ID],
+            ["delete-deployment", "--deployment", DEPLOYMENT_ID],
+            ["add-schedule", "--deployment", DEPLOYMENT_ID, "--cron", "1 2 * * *"],
+            [
+                "delete-schedule",
+                "--deployment",
+                DEPLOYMENT_ID,
+                "--schedule-id",
+                "schedule-1",
+            ],
             ["pause", "--deployment", DEPLOYMENT_ID],
             ["resume", "--deployment", DEPLOYMENT_ID],
             ["set-state", "--id", FLOW_RUN_ID, "--type", "FAILED"],
@@ -263,6 +278,115 @@ class PrefectOpsTests(unittest.TestCase):
             client=variable_delete_client,
         )
         self.assertEqual(variable_delete_result, {"deleted_variable": "flag"})
+
+    def test_extended_reads_redact_blocks_and_count_runs(self):
+        secret_data = {"token": "must-not-leak"}
+
+        def responder(method, path, body, allow_not_found):
+            if method == "POST" and path == "/block_documents/filter":
+                return [
+                    {
+                        "id": "block-1",
+                        "name": "credential",
+                        "block_type_name": "Secret",
+                        "data": secret_data,
+                        "nested": {"data": {"password": "nested-secret"}},
+                        "is_anonymous": False,
+                    }
+                ]
+            if method == "POST" and path == "/flow_runs/count":
+                return 7
+            raise AssertionError((method, path, body, allow_not_found))
+
+        client = FakeClient(responder)
+        blocks = pf.execute(["blocks", "--full"], env={}, client=client)
+        self.assertEqual(blocks["count"], 1)
+        self.assertTrue(blocks["data_redacted"])
+        self.assertNotIn("data", blocks["items"][0])
+        self.assertNotIn("must-not-leak", json.dumps(blocks))
+        self.assertNotIn("nested-secret", json.dumps(blocks))
+
+        count = pf.execute(
+            ["count", "--state", "failed", "--since-hours", "24"],
+            env={},
+            client=client,
+        )
+        self.assertEqual(count, {"count": 7})
+        count_call = client.calls[-1]
+        self.assertEqual(count_call["body"]["flow_runs"]["state"]["type"]["any_"], ["FAILED"])
+
+    def test_extended_mutations_use_expected_endpoints(self):
+        def responder(method, path, body, allow_not_found):
+            if method == "GET" and path == f"/deployments/{DEPLOYMENT_ID}":
+                return {"id": DEPLOYMENT_ID, "name": "demo"}
+            if method == "POST" and path == f"/flow_runs/{FLOW_RUN_ID}/resume":
+                return {"status": "accepted"}
+            if method == "DELETE" and path == f"/deployments/{DEPLOYMENT_ID}":
+                return None
+            if method == "POST" and path == f"/deployments/{DEPLOYMENT_ID}/schedules":
+                return [{"id": "schedule-1"}]
+            if method == "DELETE" and path == f"/deployments/{DEPLOYMENT_ID}/schedules/schedule-1":
+                return None
+            raise AssertionError((method, path, body, allow_not_found))
+
+        env = {pf.WRITE_ENV_NAME: pf.WRITE_ENV_VALUE}
+
+        client = FakeClient(responder)
+        result = pf.execute(
+            ["resume-run", "--id", FLOW_RUN_ID, "--confirm-write"],
+            env=env,
+            client=client,
+        )
+        self.assertEqual(result, {"status": "accepted"})
+
+        client = FakeClient(responder)
+        result = pf.execute(
+            ["delete-deployment", "--deployment", DEPLOYMENT_ID, "--confirm-write"],
+            env=env,
+            client=client,
+        )
+        self.assertEqual(result["deleted_deployment"], "demo")
+
+        client = FakeClient(responder)
+        result = pf.execute(
+            [
+                "add-schedule",
+                "--deployment",
+                DEPLOYMENT_ID,
+                "--cron",
+                "1 2 * * *",
+                "--timezone",
+                "Europe/Nicosia",
+                "--confirm-write",
+            ],
+            env=env,
+            client=client,
+        )
+        self.assertEqual(result["created_schedules"], [{"id": "schedule-1"}])
+        self.assertEqual(
+            client.calls[1]["body"],
+            [
+                {
+                    "active": True,
+                    "schedule": {"cron": "1 2 * * *", "timezone": "Europe/Nicosia"},
+                }
+            ],
+        )
+
+        client = FakeClient(responder)
+        result = pf.execute(
+            [
+                "delete-schedule",
+                "--deployment",
+                DEPLOYMENT_ID,
+                "--schedule-id",
+                "schedule-1",
+                "--confirm-write",
+            ],
+            env=env,
+            client=client,
+        )
+        self.assertEqual(result["deleted_schedule"], "schedule-1")
 
     def test_variable_set_creates_when_missing(self):
         def responder(method, path, body, allow_not_found):

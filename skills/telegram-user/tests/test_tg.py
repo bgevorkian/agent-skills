@@ -53,6 +53,24 @@ class TelegramUserTests(unittest.TestCase):
         self.assertTrue(config.allow_write)
         self.assertEqual(config.session_file, Path("~/tg/session.session").expanduser())
 
+    def test_secure_session_path_and_folder_title_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            session = Path(tmp) / "telegram" / "telethon.session"
+            session.parent.mkdir(parents=True)
+            session.write_text("session", encoding="utf-8")
+            journal = session.with_name(session.name + "-journal")
+            journal.write_text("journal", encoding="utf-8")
+            with mock.patch.object(Path, "chmod", autospec=True) as chmod:
+                TG.secure_session_path(session, platform="posix")
+            modes = [call.args[1] for call in chmod.call_args_list]
+            self.assertIn(0o700, modes)
+            self.assertEqual(modes.count(0o600), 2)
+
+        title = TG.make_dialog_filter_title("Work")
+        self.assertIsInstance(title, types.TextWithEntities)
+        self.assertEqual(title.text, "Work")
+        self.assertIsInstance(title._bytes(), bytes)
+
     def test_to_jsonable_handles_common_types(self) -> None:
         data = {
             "when": dt.datetime(2024, 1, 2, 3, 4, 5),
@@ -111,6 +129,23 @@ class TelegramUserTests(unittest.TestCase):
         ])
         self.assertEqual(args.command, "folders")
         self.assertEqual(args.folders_command, "add-peers")
+        self.assertEqual(args.peers, ["@a", "@b"])
+        self.assertTrue(args.confirm_write)
+
+        args = parser.parse_args([
+            "--confirm-write",
+            "folders",
+            "move-peers",
+            "@a",
+            "@b",
+            "--to",
+            "destination",
+            "--from",
+            "source",
+        ])
+        self.assertEqual(args.folders_command, "move-peers")
+        self.assertEqual(args.destination, "destination")
+        self.assertEqual(args.source, "source")
         self.assertEqual(args.peers, ["@a", "@b"])
         self.assertTrue(args.confirm_write)
 

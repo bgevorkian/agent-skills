@@ -5,7 +5,7 @@ compatibility: Python 3.11+, uv, network access to a Prefect 3 API endpoint, and
 license: MIT
 metadata:
   author: bgevorkian
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Prefect Ops
@@ -44,6 +44,8 @@ uv run --python 3.13 python scripts/pf.py deployments --limit 50
 uv run --python 3.13 python scripts/pf.py deployment --deployment my-flow/my-deployment
 uv run --python 3.13 python scripts/pf.py logs --flow-run 00000000-0000-0000-0000-000000000000 --limit 100
 uv run --python 3.13 python scripts/pf.py scheduled-runs --deployment my-deployment --limit 10
+uv run --python 3.13 python scripts/pf.py blocks --limit 100
+uv run --python 3.13 python scripts/pf.py count --state FAILED CRASHED --since-hours 24
 uv run --python 3.13 python scripts/pf.py variables --limit 100
 ```
 
@@ -53,6 +55,8 @@ Write examples:
 PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py run --deployment my-flow/my-deployment --param retries=2 --confirm-write
 PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py cancel --id 00000000-0000-0000-0000-000000000000 --confirm-write
 PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py pause --deployment my-flow/my-deployment --confirm-write
+PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py add-schedule --deployment my-flow/my-deployment --cron "1 2 * * *" --timezone UTC --confirm-write
+PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py resume-run --id 00000000-0000-0000-0000-000000000000 --confirm-write
 PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py variable-set --name feature_flag --value true --confirm-write
 ```
 
@@ -77,6 +81,8 @@ PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py variable-set 
 - `automations`
 - `automation`
 - `work-pools`
+- `blocks` (metadata only; block data is always redacted)
+- `count`
 - `server-version`
 
 ## Write commands
@@ -84,7 +90,11 @@ PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py variable-set 
 - `run`
 - `cancel`
 - `retry`
+- `resume-run`
 - `delete`
+- `delete-deployment`
+- `add-schedule`
+- `delete-schedule`
 - `pause`
 - `resume`
 - `set-state`
@@ -96,6 +106,7 @@ PREFECT_ALLOW_WRITE=true uv run --python 3.13 python scripts/pf.py variable-set 
 - API keys are never printed.
 - Every write is double-gated by environment and CLI confirmation.
 - Response sizes, timeouts, and list limits are bounded.
+- `blocks`, including `blocks --full`, always removes the block `data` field before output.
 - HTTP failures return concise JSON errors on stderr.
 - Deployment lookup is generic and contains no bundled names or infrastructure assumptions.
 - Prefer a server-side read-only or least-privilege token when possible.

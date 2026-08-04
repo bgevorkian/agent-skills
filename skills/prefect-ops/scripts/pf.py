@@ -193,10 +193,15 @@ def parse_json_value(value: str) -> Any:
 
 def read_json_source(source: str) -> Any:
     text = source
-    if source.startswith("@"):
-        with open(source[1:], encoding="utf-8") as handle:
-            text = handle.read()
-    return json.loads(text)
+    try:
+        if source.startswith("@"):
+            with open(source[1:], encoding="utf-8") as handle:
+                text = handle.read()
+        return json.loads(text)
+    except OSError as error:
+        raise CliError(f"cannot read JSON source {source!r}: {error}") from None
+    except json.JSONDecodeError as error:
+        raise CliError(f"invalid JSON in {source!r}: {error.msg}") from None
 
 
 def parse_params(args: argparse.Namespace) -> dict[str, Any]:
@@ -447,6 +452,38 @@ def command_scheduled_runs(args: argparse.Namespace, client: PrefectClient) -> d
     return {"items": items, "count": len(items)}
 
 
+def command_add_schedule(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
+    deployment = resolve_deployment(client, args.deployment)
+    response = client.request(
+        "POST",
+        f"/deployments/{deployment['id']}/schedules",
+        [
+            {
+                "active": not args.inactive,
+                "schedule": {"cron": args.cron, "timezone": args.timezone},
+            }
+        ],
+    )
+    return {
+        "deployment": deployment.get("name"),
+        "created_schedules": response,
+    }
+
+
+def command_delete_schedule(
+    args: argparse.Namespace, client: PrefectClient
+) -> dict[str, Any]:
+    deployment = resolve_deployment(client, args.deployment)
+    client.request(
+        "DELETE",
+        f"/deployments/{deployment['id']}/schedules/{encode_path(args.schedule_id)}",
+    )
+    return {
+        "deleted_schedule": args.schedule_id,
+        "deployment": deployment.get("name"),
+    }
+
+
 def command_variables(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
     response = client.request(
         "POST", "/variables/filter", {"limit": bounded_int(args.limit, 100)}
@@ -518,6 +555,66 @@ def command_work_pools(args: argparse.Namespace, client: PrefectClient) -> dict[
     return {"items": response, "count": len(response)}
 
 
+def redact_block_data(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: redact_block_data(item)
+            for key, item in value.items()
+            if key != "data"
+        }
+    if isinstance(value, list):
+        return [redact_block_data(item) for item in value]
+    return value
+
+
+def command_blocks(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
+    response = client.request(
+        "POST", "/block_documents/filter", {"limit": bounded_int(args.limit, 100)}
+    )
+    if not isinstance(response, list):
+        raise CliError("unexpected blocks response")
+    items = []
+    for entry in response:
+        if not isinstance(entry, dict):
+            continue
+        if args.full:
+            items.append(redact_block_data(entry))
+        else:
+            items.append(
+                {
+                    "id": entry.get("id"),
+                    "name": entry.get("name"),
+                    "block_type": entry.get("block_type_name"),
+                    "is_anonymous": entry.get("is_anonymous"),
+                }
+            )
+    return {"items": items, "count": len(items), "data_redacted": True}
+
+
+def command_count(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
+    body: dict[str, Any] = {}
+    if args.state:
+        body.setdefault("flow_runs", {})["state"] = {
+            "type": {"any_": [value.upper() for value in args.state]}
+        }
+    if args.deployment:
+        deployment = resolve_deployment(client, args.deployment)
+        body.setdefault("flow_runs", {})["deployment_id"] = {
+            "any_": [deployment["id"]]
+        }
+    if args.since_hours is not None:
+        if args.since_hours < 1:
+            raise CliError("--since-hours must be at least 1")
+        after = datetime.now(timezone.utc).timestamp() - args.since_hours * 3600
+        body.setdefault("flow_runs", {})["start_time"] = {
+            "after_": datetime.fromtimestamp(after, tz=timezone.utc).isoformat()
+        }
+    response = client.request("POST", "/flow_runs/count", body)
+    if not isinstance(response, int):
+        raise CliError("unexpected flow-run count response")
+    return {"count": response}
+
+
 def command_server_version(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
     response = client.request("GET", "/admin/version")
     if isinstance(response, dict) and "version" in response:
@@ -573,9 +670,27 @@ def command_retry(args: argparse.Namespace, client: PrefectClient) -> dict[str, 
     return response
 
 
+def command_resume_run(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
+    response = client.request("POST", f"/flow_runs/{args.id}/resume", {})
+    if not isinstance(response, dict):
+        raise CliError("unexpected resume-run response")
+    return response
+
+
 def command_delete(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
     client.request("DELETE", f"/flow_runs/{args.id}")
     return {"deleted_flow_run": args.id}
+
+
+def command_delete_deployment(
+    args: argparse.Namespace, client: PrefectClient
+) -> dict[str, Any]:
+    deployment = resolve_deployment(client, args.deployment)
+    client.request("DELETE", f"/deployments/{deployment['id']}")
+    return {
+        "deleted_deployment": deployment.get("name"),
+        "id": deployment.get("id"),
+    }
 
 
 def command_pause(args: argparse.Namespace, client: PrefectClient) -> dict[str, Any]:
@@ -635,6 +750,8 @@ READ_COMMANDS = {
     "automations",
     "automation",
     "work-pools",
+    "blocks",
+    "count",
     "server-version",
 }
 
@@ -642,7 +759,11 @@ WRITE_COMMANDS = {
     "run",
     "cancel",
     "retry",
+    "resume-run",
     "delete",
+    "delete-deployment",
+    "add-schedule",
+    "delete-schedule",
     "pause",
     "resume",
     "set-state",
@@ -712,6 +833,24 @@ def build_parser() -> argparse.ArgumentParser:
     scheduled_runs.add_argument("--full", action="store_true")
     scheduled_runs.set_defaults(func=command_scheduled_runs)
 
+    add_schedule = subparsers.add_parser(
+        "add-schedule", help="add a cron schedule to a deployment"
+    )
+    add_schedule.add_argument("--deployment", required=True)
+    add_schedule.add_argument("--cron", required=True)
+    add_schedule.add_argument("--timezone", default="UTC")
+    add_schedule.add_argument("--inactive", action="store_true")
+    add_write_gate(add_schedule)
+    add_schedule.set_defaults(func=command_add_schedule)
+
+    delete_schedule = subparsers.add_parser(
+        "delete-schedule", help="delete one deployment schedule"
+    )
+    delete_schedule.add_argument("--deployment", required=True)
+    delete_schedule.add_argument("--schedule-id", required=True)
+    add_write_gate(delete_schedule)
+    delete_schedule.set_defaults(func=command_delete_schedule)
+
     variables = subparsers.add_parser("variables", help="list variables")
     variables.add_argument("--limit", type=int, default=100)
     variables.add_argument("--full", action="store_true")
@@ -733,6 +872,19 @@ def build_parser() -> argparse.ArgumentParser:
     work_pools = subparsers.add_parser("work-pools", help="list work pools")
     work_pools.add_argument("--limit", type=int, default=50)
     work_pools.set_defaults(func=command_work_pools)
+
+    blocks = subparsers.add_parser("blocks", help="list block document metadata")
+    blocks.add_argument("--limit", type=int, default=100)
+    blocks.add_argument(
+        "--full", action="store_true", help="full metadata; secret data stays redacted"
+    )
+    blocks.set_defaults(func=command_blocks)
+
+    count = subparsers.add_parser("count", help="count matching flow runs")
+    count.add_argument("--state", nargs="*")
+    count.add_argument("--deployment")
+    count.add_argument("--since-hours", type=int)
+    count.set_defaults(func=command_count)
 
     version = subparsers.add_parser("server-version", help="get server version")
     version.set_defaults(func=command_server_version)
@@ -756,10 +908,24 @@ def build_parser() -> argparse.ArgumentParser:
     add_write_gate(retry)
     retry.set_defaults(func=command_retry)
 
+    resume_run = subparsers.add_parser(
+        "resume-run", help="resume a paused or suspended flow run"
+    )
+    resume_run.add_argument("--id", required=True)
+    add_write_gate(resume_run)
+    resume_run.set_defaults(func=command_resume_run)
+
     delete = subparsers.add_parser("delete", help="delete a flow run")
     delete.add_argument("--id", required=True)
     add_write_gate(delete)
     delete.set_defaults(func=command_delete)
+
+    delete_deployment = subparsers.add_parser(
+        "delete-deployment", help="delete a deployment"
+    )
+    delete_deployment.add_argument("--deployment", required=True)
+    add_write_gate(delete_deployment)
+    delete_deployment.set_defaults(func=command_delete_deployment)
 
     pause = subparsers.add_parser("pause", help="pause a deployment")
     pause.add_argument("--deployment", required=True)

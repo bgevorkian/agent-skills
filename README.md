@@ -14,9 +14,9 @@ Reusable, open-source [Agent Skills](https://agentskills.io/) for Pi and other c
 | [`postgres-readonly`](skills/postgres-readonly/) | Safe single-host or bounded multi-host PostgreSQL queries with JSON output, standard `PG*` configuration, TLS, SQL guards, and read-only transactions. | `uv`, Python 3.11+, `asyncpg` |
 | [`mssql-safe`](skills/mssql-safe/) | Generic SQL Server inspection/query CLI plus doubly gated DDL/DML execution. | `uv`, Python 3.11+, `pymssql` |
 | [`trino-readonly`](skills/trino-readonly/) | Guarded Trino/Iceberg queries and catalog/schema/table inspection with generic TLS/auth configuration. | `uv`, Python 3.11+, `trino` |
-| [`prefect-ops`](skills/prefect-ops/) | Inspect Prefect 3 runs, logs, deployments, schedules, variables and automations; operational changes are double-gated. | `uv`, Python 3.11+ |
-| [`telegram-user`](skills/telegram-user/) | Generic Telethon user-account CLI for dialogs, messages, search, folders and contacts with controlled mutations. | `uv`, Python 3.11+, `telethon` |
-| [`youtrack`](skills/youtrack/) | Generic YouTrack issues, comments, projects, users, field schema and Knowledge Base articles with controlled writes. | `uv`, Python 3.11+ |
+| [`prefect-ops`](skills/prefect-ops/) | Full Prefect 3 operations CLI for runs, logs, deployments, schedules, variables, blocks and automations; secret block data is redacted and mutations are double-gated. | `uv`, Python 3.11+ |
+| [`telegram-user`](skills/telegram-user/) | Generic Telethon user-account CLI for dialogs, messages, search, folders and contacts with per-machine sessions and controlled mutations. | `uv`, Python 3.11+, `telethon` |
+| [`youtrack`](skills/youtrack/) | Complete generic YouTrack CLI and approval-first workflows for issues, comments, attachments, activities, commands and Knowledge Base articles. | `uv`, Python 3.11+ |
 | [`tidal`](skills/tidal/) | Explicit TIDAL account tasks: auth, search, library, playlists and favorites. No recommendations, vibe classification or auto-sorting. | `uv`, Python 3.13+, `tidalapi` |
 
 ## Install
